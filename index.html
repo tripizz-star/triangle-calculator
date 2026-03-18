@@ -1,4 +1,3 @@
-html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -426,6 +425,27 @@ html
         const canvas = document.getElementById('triangleCanvas');
         const ctx = canvas.getContext('2d');
         
+        // ПОЛУЧАЕМ ПАРАМЕТРЫ ИЗ URL (ДОБАВЛЕНО)
+        const urlParams = new URLSearchParams(window.location.search);
+        const format = urlParams.get('format'); // для JSON-вывода
+        
+        // Устанавливаем значения из URL, если они есть
+        if (urlParams.has('a')) sideAInput.value = urlParams.get('a');
+        if (urlParams.has('b')) sideBInput.value = urlParams.get('b');
+        if (urlParams.has('c')) sideCInput.value = urlParams.get('c');
+        
+        // Функция для вывода JSON (для Postman)
+        function outputJSON(data, isError = false) {
+            const jsonData = {
+                success: !isError,
+                timestamp: new Date().toISOString(),
+                ...data
+            };
+            
+            // Устанавливаем заголовок для JSON
+            document.body.innerHTML = '<pre>' + JSON.stringify(jsonData, null, 2) + '</pre>';
+        }
+        
         // Функция для проверки существования треугольника
         function isValidTriangle(a, b, c) {
             return (a + b > c) && (a + c > b) && (b + c > a);
@@ -439,22 +459,41 @@ html
             
             // Проверка на пустые значения
             if (isNaN(a) || isNaN(b) || isNaN(c)) {
-                errorMessage.textContent = "Ошибка: все стороны должны быть числами!";
+                const errorText = "Ошибка: все стороны должны быть числами!";
+                errorMessage.textContent = errorText;
                 errorMessage.style.display = "block";
+                
+                // Если нужен JSON - выводим его
+                if (format === 'json') {
+                    outputJSON({ error: errorText, sides: [a, b, c] }, true);
+                    return null;
+                }
                 return null;
             }
             
             // Проверка на положительные значения
             if (a <= 0 || b <= 0 || c <= 0) {
-                errorMessage.textContent = "Ошибка: стороны должны быть положительными числами!";
+                const errorText = "Ошибка: стороны должны быть положительными числами!";
+                errorMessage.textContent = errorText;
                 errorMessage.style.display = "block";
+                
+                if (format === 'json') {
+                    outputJSON({ error: errorText, sides: [a, b, c] }, true);
+                    return null;
+                }
                 return null;
             }
             
             // Проверка существования треугольника
             if (!isValidTriangle(a, b, c)) {
-                errorMessage.textContent = "Ошибка: треугольник с такими сторонами не существует!";
+                const errorText = "Ошибка: треугольник с такими сторонами не существует!";
+                errorMessage.textContent = errorText;
                 errorMessage.style.display = "block";
+                
+                if (format === 'json') {
+                    outputJSON({ error: errorText, sides: [a, b, c] }, true);
+                    return null;
+                }
                 return null;
             }
             
@@ -533,6 +572,40 @@ html
         
         // Функция для отображения результатов
         function displayResults(params) {
+            // Если нужен JSON - выводим его и выходим
+            if (format === 'json') {
+                const jsonData = {
+                    sides: [
+                        parseFloat(sideAInput.value),
+                        parseFloat(sideBInput.value),
+                        parseFloat(sideCInput.value)
+                    ],
+                    type: params.triangleType.type,
+                    area: Number(params.area.toFixed(2)),
+                    perimeter: Number(params.perimeter.toFixed(2)),
+                    semiperimeter: Number(params.semiperimeter.toFixed(2)),
+                    heights: {
+                        a: Number(params.heights.heightA.toFixed(2)),
+                        b: Number(params.heights.heightB.toFixed(2)),
+                        c: Number(params.heights.heightC.toFixed(2))
+                    },
+                    medians: {
+                        a: Number(params.medians.medianA.toFixed(2)),
+                        b: Number(params.medians.medianB.toFixed(2)),
+                        c: Number(params.medians.medianC.toFixed(2))
+                    },
+                    bisectors: {
+                        a: Number(params.bisectors.bisectorA.toFixed(2)),
+                        b: Number(params.bisectors.bisectorB.toFixed(2)),
+                        c: Number(params.bisectors.bisectorC.toFixed(2))
+                    }
+                };
+                
+                outputJSON(jsonData);
+                return;
+            }
+            
+            // Обычный вывод в HTML
             areaResult.textContent = params.area.toFixed(2);
             perimeterResult.textContent = params.perimeter.toFixed(2);
             semiperimeterResult.textContent = params.semiperimeter.toFixed(2);
@@ -818,7 +891,11 @@ html
             const params = calculateTriangleParams(a, b, c);
             
             displayResults(params);
-            drawTriangle(a, b, c, params);
+            
+            // Не рисуем треугольник в JSON-режиме
+            if (format !== 'json') {
+                drawTriangle(a, b, c, params);
+            }
         }
         
         // Функция для сброса результатов
@@ -886,8 +963,15 @@ html
         // Инициализация при загрузке страницы
         window.addEventListener('load', function() {
             initCanvas();
-            // Автоматически рассчитываем для примерных значений
-            handleCalculate();
+            
+            // Если есть параметры в URL - рассчитываем сразу
+            if (urlParams.has('a') || urlParams.has('b') || urlParams.has('c')) {
+                // Небольшая задержка для гарантии, что всё загрузилось
+                setTimeout(handleCalculate, 100);
+            } else {
+                // Автоматически рассчитываем для примерных значений
+                handleCalculate();
+            }
         });
     </script>
 </body>
